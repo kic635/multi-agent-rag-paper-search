@@ -49,7 +49,7 @@ index_param = [
     {"index_type": "HNSW", "metric_type": "L2", "params": {"M": 8, "efConstruction": 64}},
     {"index_type": "SPARSE_INVERTED_INDEX", "metric_type": "BM25"}
 ]
-
+######
 
 bm25_func = BM25BuiltInFunction(output_field_names="sparse_vector")
 store = Milvus(
