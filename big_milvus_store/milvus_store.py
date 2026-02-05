@@ -71,7 +71,7 @@ store = Milvus(
 # ... 前面的加载代码 ...
 
 # --- 核心修复代码：清洗元数据 ---
-# --- 升级版：清洗元数据并补全缺失字段 ---
+# --- 升级版：清洗元数据并补全缺失字段 ---####
 print(f"正在清洗并对齐 {len(all_splits)} 个文档的元数据...")
 for doc in all_splits:
     # 1. 补全缺失的 languages 字段，防止 Milvus 报错 DataNotMatch
