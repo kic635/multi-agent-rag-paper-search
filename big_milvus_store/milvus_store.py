@@ -19,8 +19,8 @@ load_dotenv()
 # 1. 加载与切割
 loader =UnstructuredLoader(
         file_path='nke-10k-2023.pdf',
-        strategy="fast",
-        infer_table_structure=False,
+        strategy="fast",#"hi_res" 学术类请用hi_res,True 快速测试请用fast和false
+        infer_table_structure=False,#"True"
         languages=["eng"],
         ocr_engine="paddleocr",
     )
