@@ -1,11 +1,20 @@
-import os
-from dotenv import load_dotenv
 from langchain.agents import create_agent
-from langchain_openai import ChatOpenAI
-from demo_agent import llm,SYSTEM_PROMPT
-load_dotenv()
-class AcademicRAGAgent:
-    def __init__(self,tools):
-        self.agent=create_agent(model=llm,system_prompt=SYSTEM_PROMPT,tools=tools)
-    def ask(self,query:str):
-        return self.agent.invoke({"input":query})
+from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.checkpoint.memory import InMemorySaver
+
+from demo_agent import llm
+agent_mine = create_agent(
+    model=llm,
+    checkpointer=InMemorySaver()
+)
+if __name__ == '__main__':
+
+   for chunk in agent_mine.stream(
+       {"messages": [HumanMessage(content="What is the capital of France?")]},
+       config={"configurable": {"thread_id": "2"}},
+       stream_mode="messages"
+   ):
+          print(chunk[0].content)
+
+
+

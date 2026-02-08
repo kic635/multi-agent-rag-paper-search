@@ -25,13 +25,14 @@ loader =UnstructuredLoader(
         ocr_engine="paddleocr",
     )
 pdf_doc = loader.load()
-
+#递归分割
 text_splitter = RecursiveCharacterTextSplitter(
     separators=["\n\n", "\n", "。", ".", "？", "?", "！", "!", "；", ";", " ", ""],
     chunk_size=1000,
     chunk_overlap=200,
     add_start_index=True,
 )
+#这里还可以加个语义分割 但是如果加了语义分割 separators粒度就不要那么细
 all_splits = text_splitter.split_documents(pdf_doc)
 # 2. 向量模型配置
 # 稠密向量
@@ -99,6 +100,7 @@ base_retriever = store.as_retriever(
     search_kwargs={
         "k": 20,
        #"reranker": RRFRanker()
+        "vector_fields": ["dense_vector", "sparse_vector"],
     }
 )
 
