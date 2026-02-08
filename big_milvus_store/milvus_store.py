@@ -18,9 +18,9 @@ load_dotenv()
 
 # 1. 加载与切割
 loader =UnstructuredLoader(
-        file_path='nke-10k-2023.pdf',
-        strategy="fast",#"hi_res" 学术类请用hi_res,True 快速测试请用fast和false
-        infer_table_structure=False,#"True"
+        file_path='1-s2.0-S1074761325005643-main.pdf',
+        strategy="hi_res",#"hi_res" 学术类请用hi_res,True 快速测试请用fast和false
+        infer_table_structure=True,#"True"
         languages=["eng"],
         ocr_engine="paddleocr",
     )
@@ -88,10 +88,22 @@ for doc in all_splits:
     keys_to_fix = [k for k, v in doc.metadata.items() if isinstance(v, (list, dict))]
     for key in keys_to_fix:
         doc.metadata[key] = str(doc.metadata[key])
+    
+    # 3. 关键修复：删除所有非标准字段，只保留基本元数据
+    # Milvus collection 的字段是固定的，额外的字段会导致插入失败
+    allowed_fields = {
+        'source', 'page_number', 'filename', 'category', 
+        'last_modified', 'filetype', 'languages'
+    }
+    # 删除不在允许列表中的字段
+    extra_fields = [k for k in doc.metadata.keys() if k not in allowed_fields]
+    for field in extra_fields:
+        del doc.metadata[field]
 
 # --- 现在再执行写入 ---
 print("正在写入 Milvus...")
-store.add_documents(all_splits[0:2])
+print(f"第一条文档的元数据字段: {list(all_splits[0].metadata.keys())}")
+store.add_documents(all_splits)
 
 # 6. 构建检索链
 # 基础检索：混合检索 + RRF 重排

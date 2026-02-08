@@ -1,12 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException
+from io import BytesIO
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile,File
 from fastapi.security import OAuth2PasswordRequestForm
 from langchain.agents import create_agent
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.messages import AIMessage
 from langchain_core.messages import HumanMessage
+from langchain_core.stores import InMemoryStore
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from sqlalchemy import select
 from tenacity import sleep
-
+import tempfile
+from langchain_core.vectorstores import InMemoryVectorStore
 from big_agent.get_llm import llm
 from config.db_conf import get_db
 from constants.PDB_URI import DB_URI
@@ -17,6 +22,8 @@ from schemas.users import UserRequest
 from utils.auth import get_current_user
 from fastapi.responses import StreamingResponse
 from constants.SYSTEM_PROMPT import SYSTEM_PROMPT
+from big_milvus_store.milvus_online import rag_tool
+
 router = APIRouter(prefix="/api/user", tags=["users"])
 
 
@@ -83,21 +90,24 @@ async def chat(session_id:str,query:str,db=Depends(get_db), user_id=Depends(get_
         conversation = Conversation(session_id=session_id, user_id=user_id)
         db.add(conversation)
         await db.commit()
-    async def generate():
-        async with AsyncPostgresSaver.from_conn_string(DB_URI) as checkpointer:
+    async with AsyncPostgresSaver.from_conn_string(DB_URI) as checkpointer:
             agent_mine = create_agent(
                 model=llm,
                 checkpointer=checkpointer,
-                system_prompt=SYSTEM_PROMPT
+                system_prompt=SYSTEM_PROMPT,
+                tools=[rag_tool]
             )
-            async for chunk in agent_mine.astream(
+
+            result = await agent_mine.ainvoke(
                 {"messages": [HumanMessage(content=query)]},
                 config={"configurable": {"thread_id": session_id}}
-            ):
-                if chunk and len(chunk) > 0:
-                    yield chunk['model']['messages'][0].content
-    
-    return StreamingResponse(generate(), media_type="text/plain")
+            )
+            ai_conversation=[]
+            for msg in result["messages"]:
+                if isinstance(msg, AIMessage):
+                    ai_conversation.append({"role": "assistant", "content": msg.content})
+            return {"code": 200, "message": "success", "data": ai_conversation[-1]}
+
 @router.get("/history")
 async def get(session_id:str,db=Depends(get_db), user_id=Depends(get_current_user)):
     async with AsyncPostgresSaver.from_conn_string(DB_URI) as checkpointer:
@@ -125,6 +135,7 @@ async def session_id_list(user_id=Depends(get_current_user),db=Depends(get_db)):
     if not session_id_list:
         raise HTTPException(status_code=400,detail="User not found")
     return {"code": 200, "message": "success", "data": session_id_list}
+
 
 
 
