@@ -6,7 +6,8 @@ const state = {
     token: localStorage.getItem('token') || null,
     currentSessionId: null,
     username: localStorage.getItem('username') || null,
-    isLoading: false
+    isLoading: false,
+    sessionTitles: JSON.parse(localStorage.getItem('sessionTitles') || '{}') // 存储会话标题 {sessionId: title}
 };
 
 // 页面初始化
@@ -200,10 +201,12 @@ async function loadSessionList() {
             sessionList.innerHTML = '';
 
             if (data.code === 200 && data.data.length > 0) {
-                data.data.forEach(sessionId => {
+                // 为每个会话加载标题（从历史记录获取第一条消息）
+                for (const sessionId of data.data) {
+                    await ensureSessionTitle(sessionId);
                     const sessionItem = createSessionItem(sessionId);
                     sessionList.appendChild(sessionItem);
-                });
+                }
             }
         }
     } catch (error) {
@@ -211,13 +214,49 @@ async function loadSessionList() {
     }
 }
 
+// 确保会话有标题
+async function ensureSessionTitle(sessionId) {
+    // 如果已经有标题，直接返回
+    if (state.sessionTitles[sessionId]) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/history?session_id=${sessionId}`, {
+            headers: {
+                'Authorization': state.token
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.code === 200 && data.data.length > 0) {
+                const firstUserMsg = data.data.find(msg => msg.role === 'user');
+                if (firstUserMsg) {
+                    const title = firstUserMsg.content.length > 20 ? 
+                        firstUserMsg.content.substring(0, 20) + '...' : 
+                        firstUserMsg.content;
+                    state.sessionTitles[sessionId] = title;
+                    localStorage.setItem('sessionTitles', JSON.stringify(state.sessionTitles));
+                }
+            }
+        }
+    } catch (error) {
+        console.error(`加载会话${sessionId}标题失败:`, error);
+    }
+}
+
 // 创建会话列表项
 function createSessionItem(sessionId) {
     const div = document.createElement('div');
     div.className = 'session-item';
+    
+    // 优先使用存储的标题，否则显示会话ID
+    const title = state.sessionTitles[sessionId] || `会话 ${String(sessionId)}`;
+    
     div.innerHTML = `
         <div>
-            <div class="session-title">会话 ${String(sessionId).substring(0, 8)}</div>
+            <div class="session-title">${escapeHtml(title)}</div>
         </div>
     `;
     
@@ -282,7 +321,21 @@ async function loadChatHistory(sessionId) {
                     // 历史消息也使用markdown渲染
                     addMessageWithMarkdown(msg.content, msg.role === 'user' ? 'user' : 'ai');
                 });
-                document.getElementById('current-session-title').textContent = `会话 ${String(sessionId).substring(0, 8)}`;
+                
+                // 如果没有保存标题，用第一条用户消息作为标题
+                if (!state.sessionTitles[sessionId]) {
+                    const firstUserMsg = data.data.find(msg => msg.role === 'user');
+                    if (firstUserMsg) {
+                        const title = firstUserMsg.content.length > 20 ? 
+                            firstUserMsg.content.substring(0, 20) + '...' : 
+                            firstUserMsg.content;
+                        state.sessionTitles[sessionId] = title;
+                        localStorage.setItem('sessionTitles', JSON.stringify(state.sessionTitles));
+                    }
+                }
+                
+                const title = state.sessionTitles[sessionId] || `会话 ${String(sessionId)}`;
+                document.getElementById('current-session-title').textContent = title;
             } else {
                 showWelcomeMessage();
             }
@@ -303,6 +356,13 @@ async function handleSendMessage() {
 
     const ragEnabled = document.getElementById('rag-option').checked;
     const tavilyEnabled = document.getElementById('tavily-option').checked;
+
+    // 如果是新会话的第一条消息，保存标题
+    if (!state.sessionTitles[state.currentSessionId]) {
+        const title = message.length > 20 ? message.substring(0, 20) + '...' : message;
+        state.sessionTitles[state.currentSessionId] = title;
+        localStorage.setItem('sessionTitles', JSON.stringify(state.sessionTitles));
+    }
 
     // 添加用户消息
     addMessage(message, 'user');
