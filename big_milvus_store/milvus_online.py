@@ -3,15 +3,15 @@ import os
 import sys
 from dotenv import load_dotenv
 from langchain_core.tools import Tool
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_milvus import Milvus,BM25BuiltInFunction
-from langchain_community.embeddings import DashScopeEmbeddings
-from langchain_unstructured import UnstructuredLoader
 from langchain_huggingface import HuggingFaceEmbeddings
-from pymilvus import DataType, RRFRanker
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_classic.retrievers import ContextualCompressionRetriever
 from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
+from gptcache import cache
+from gptcache.manager import get_data_manager, CacheBase, VectorBase
+from gptcache.similarity_evaluation import SearchDistanceEvaluation
+
 
 # ======================== 关键优化：全局初始化资源（只加载一次） ========================
 # 1. 初始化 Embedding 模型（全局只加载一次）
@@ -31,7 +31,6 @@ index_param = [
     {"index_type": "SPARSE_INVERTED_INDEX", "metric_type": "BM25"}
 ]
 bm25_func = BM25BuiltInFunction(output_field_names="sparse_vector")
-
 # 3. 初始化 Milvus 连接和 Retriever（全局只加载一次）
 try:
     store = Milvus(
@@ -69,40 +68,74 @@ except Exception as e:
     raise RuntimeError(f"初始化 RAG 资源失败：{str(e)}")
 
 
+
+#缓存相关配置
+evaluation =SearchDistanceEvaluation(max_distance=0.1, positive=False)
+cache.init(
+    pre_embedding_func=dense_embeddings.embed_query,
+    data_manager=get_data_manager(
+        cache_base=CacheBase('sqlite'),
+        vector_base=VectorBase('faiss', dimension=512)
+    ),
+    similarity_evaluation=evaluation,
+)
+
+
+
 # ======================== Tool 定义（核心逻辑） ========================
+
+
 def rag_res(query: str) -> str:
     """
-    RAG 知识库查询核心函数
-    
-    Args:
-        query: 用户查询字符串
-        
-    Returns:
-        格式化后的检索结果字符串
+    不依赖 cache.search 的通用兼容版
     """
     try:
         print(f"[RAG Tool] 收到查询: {query}")
+
+        # 1. 手动向量化查询语句
+        query_embedding = dense_embeddings.embed_query(query)
+
+        cached_results = cache.data_manager.search(query_embedding, count=1)
+
+        if cached_results:
+            if cached_results:
+                score = cached_results[0][0]
+                THRESHOLD = 0.05
+                if score < THRESHOLD:
+                    cached_answer = cached_results[0][1]
+                    print(f"[GPTCache] 命中语义缓存！分数: {score:.4f}")
+                    return cached_answer
+                else:
+                    print(f"[GPTCache] 距离太远 (分数: {score:.4f}), 判定为未命中。")
+        # --- 缓存未命中，执行向量库检索 ---
+        print(f"[RAG Tool] 缓存未命中，开始执行向量检索...")
         results = compression_retriever.invoke(query)
-        print(f"[RAG Tool] 检索到 {len(results)} 条结果")
 
         if not results:
             return "未在知识库中找到相关结果。"
 
-        # 格式化结果，限制长度避免token溢出
+        # 格式化检索结果
         formatted_results = []
         for idx, doc in enumerate(results, 1):
             content = doc.page_content[:300] if len(doc.page_content) > 300 else doc.page_content
             formatted_results.append(f"结果{idx}:\n{content}\n")
-        
+
         result_text = "\n".join(formatted_results)
-        print(f"[RAG Tool] 返回结果长度: {len(result_text)} 字符")
+
+        # 3. 回写缓存 (参数名保持你之前跑通的 answer 和 embedding_data)
+        cache.data_manager.save(
+            question=query,
+            answer=result_text,
+            embedding_data=query_embedding
+        )
+        print(f"[RAG Tool] 已更新语义缓存。")
+
         return result_text
 
     except Exception as e:
-        error_msg = f"知识库查询失败: {str(e)}"
-        print(f"[RAG Tool Error] {error_msg}")
-        return error_msg
-
+        import traceback
+        traceback.print_exc()
+        return f"知识库查询失败: {str(e)}"
 
 # 创建 Tool 实例
 rag_tool = Tool(
