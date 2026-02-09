@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 助手</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- 登录注册页面 -->
+    <div id="auth-page" class="auth-container">
+        <div class="auth-box">
+            <div class="auth-logo">
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                    <circle cx="24" cy="24" r="20" fill="#3370ff"/>
+                    <path d="M24 14L16 28H24L24 34L32 20H24L24 14Z" fill="white"/>
+                </svg>
+            </div>
+            <h1 class="auth-title">AI 智能助手</h1>
+            
+            <!-- 登录表单 -->
+            <div id="login-form" class="form-container">
+                <div class="form-group">
+                    <input type="text" id="login-username" placeholder="用户名" class="form-input">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="login-password" placeholder="密码" class="form-input">
+                </div>
+                <button id="login-btn" class="btn-primary">登录</button>
+                <div class="form-footer">
+                    <span>还没有账号？</span>
+                    <a href="#" id="show-register">立即注册</a>
+                </div>
+            </div>
+
+            <!-- 注册表单 -->
+            <div id="register-form" class="form-container" style="display: none;">
+                <div class="form-group">
+                    <input type="text" id="register-username" placeholder="用户名" class="form-input">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="register-password" placeholder="密码" class="form-input">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="register-confirm" placeholder="确认密码" class="form-input">
+                </div>
+                <button id="register-btn" class="btn-primary">注册</button>
+                <div class="form-footer">
+                    <span>已有账号？</span>
+                    <a href="#" id="show-login">立即登录</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主聊天页面 -->
+    <div id="chat-page" class="chat-container" style="display: none;">
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2 class="sidebar-title">对话历史</h2>
+                <button id="new-chat-btn" class="btn-new-chat" title="新建对话">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="session-list" id="session-list">
+                <!-- 会话列表动态生成 -->
+            </div>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="user-avatar">U</div>
+                    <span class="user-name" id="user-name">用户</span>
+                </div>
+                <button id="logout-btn" class="btn-logout">退出</button>
+            </div>
+        </div>
+
+        <!-- 聊天区域 -->
+        <div class="chat-main">
+            <!-- 聊天头部 -->
+            <div class="chat-header">
+                <h3 id="current-session-title">新对话</h3>
+            </div>
+
+            <!-- 消息区域 -->
+            <div class="messages-container" id="messages-container">
+                <div class="welcome-message">
+                    <div class="welcome-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <circle cx="32" cy="32" r="28" fill="#f0f2f5"/>
+                            <circle cx="32" cy="32" r="20" fill="#3370ff"/>
+                            <path d="M32 20L24 34H32L32 44L40 30H32L32 20Z" fill="white"/>
+                        </svg>
+                    </div>
+                    <h2>你好，我是 AI 助手</h2>
+                    <p>我可以回答问题、提供建议，还可以搜索互联网获取最新信息</p>
+                </div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="message-input" 
+                        class="message-input" 
+                        placeholder="输入消息..."
+                        rows="1"
+                    ></textarea>
+                    <button id="send-btn" class="btn-send" disabled>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M2 10L18 2L12 10L18 18L2 10Z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="rag-option" checked>
+                        <span>知识库检索</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="tavily-option" checked>
+                        <span>互联网搜索</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

@@ -3,7 +3,7 @@ import datetime
 from langchain_core.tools import Tool
 
 
-def get_now_time():
+def get_now_time(query: str):
     now = datetime.now()
     return now.strftime("%H:%M:%S")
 now_tool=Tool(
