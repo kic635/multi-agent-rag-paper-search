@@ -14,7 +14,7 @@ if __name__ == '__main__':
        config={"configurable": {"thread_id": "2"}},
        stream_mode="messages"
    ):
-          print(chunk[0].content)
+          print(type(chunk))
 
 
 

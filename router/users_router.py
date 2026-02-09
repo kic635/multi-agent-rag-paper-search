@@ -13,6 +13,8 @@ from tenacity import sleep
 import tempfile
 from langchain_core.vectorstores import InMemoryVectorStore
 from big_agent.get_llm import llm
+from big_agent.get_now_time import now_tool
+from big_agent.get_tavily import tavily_tool
 from config.db_conf import get_db
 from constants.PDB_URI import DB_URI
 from crud.users import get_user_by_username, create_user,create_token,authenticate_user
@@ -81,7 +83,7 @@ async def get_user(db=Depends(get_db), user_id=Depends(get_current_user)):
         }
     }
 @router.get("/chat")
-async def chat(session_id:str,query:str,db=Depends(get_db), user_id=Depends(get_current_user)):
+async def chat(session_id:str,query:str,rag_true:bool=True,tavily_true:bool=True,db=Depends(get_db), user_id=Depends(get_current_user)):
     #查这个session_id有没有存储在数据库中
     stmt=select(Conversation).where(Conversation.session_id == session_id)
     res=await db.execute(stmt)
@@ -90,12 +92,17 @@ async def chat(session_id:str,query:str,db=Depends(get_db), user_id=Depends(get_
         conversation = Conversation(session_id=session_id, user_id=user_id)
         db.add(conversation)
         await db.commit()
+    tools=[now_tool]
+    if rag_true:
+        tools.append(rag_tool)
+    if tavily_true:
+        tools.append(tavily_tool)
     async with AsyncPostgresSaver.from_conn_string(DB_URI) as checkpointer:
             agent_mine = create_agent(
                 model=llm,
                 checkpointer=checkpointer,
                 system_prompt=SYSTEM_PROMPT,
-                tools=[rag_tool]
+                tools=tools
             )
 
             result = await agent_mine.ainvoke(

@@ -40,7 +40,7 @@ async def create_token(user_id, db=Depends(get_db)):
         await db.commit()
     return token
 async def authenticate_user(user_data,db):
-    stmt=select(User).where(User.username == user_data.username and User.password == user_data.password)
+    stmt=select(User).where(User.username == user_data.username,User.password == user_data.password)
     res=await db.execute(stmt)
     user=res.scalars().one_or_none()
     print(f'打印了{user}')
