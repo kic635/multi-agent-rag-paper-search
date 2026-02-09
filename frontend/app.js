@@ -248,9 +248,17 @@ function initNewSession() {
     });
 }
 
-// 生成会话ID (转换为整数时间戳)
+// 生成会话ID (从1000开始的递增整数，限制在INT范围内)
+let sessionCounter = parseInt(localStorage.getItem('sessionCounter') || '1000');
+
 function generateSessionId() {
-    return Date.now();
+    sessionCounter++;
+    // 防止超过MySQL INT最大值(2147483647)，超过后重置为1000
+    if (sessionCounter > 2147483647) {
+        sessionCounter = 1000;
+    }
+    localStorage.setItem('sessionCounter', sessionCounter.toString());
+    return sessionCounter;
 }
 
 // 加载聊天历史
@@ -271,7 +279,8 @@ async function loadChatHistory(sessionId) {
 
             if (data.code === 200 && data.data.length > 0) {
                 data.data.forEach(msg => {
-                    addMessage(msg.content, msg.role === 'user' ? 'user' : 'ai');
+                    // 历史消息也使用markdown渲染
+                    addMessageWithMarkdown(msg.content, msg.role === 'user' ? 'user' : 'ai');
                 });
                 document.getElementById('current-session-title').textContent = `会话 ${String(sessionId).substring(0, 8)}`;
             } else {
@@ -363,7 +372,31 @@ function addMessage(content, type) {
     return messageDiv;
 }
 
-// 伪流式输出消息
+// 添加Markdown渲染消息到界面
+function addMessageWithMarkdown(content, type) {
+    const container = document.getElementById('messages-container');
+    
+    // 移除欢迎消息
+    const welcome = container.querySelector('.welcome-message');
+    if (welcome) welcome.remove();
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}`;
+    
+    const avatar = type === 'user' ? state.username.charAt(0).toUpperCase() : 'AI';
+    
+    messageDiv.innerHTML = `
+        <div class="message-avatar">${avatar}</div>
+        <div class="message-content">${marked.parse(content)}</div>
+    `;
+
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight;
+    
+    return messageDiv;
+}
+
+// 伪流式输出Markdown消息
 async function streamMessage(content, type) {
     const container = document.getElementById('messages-container');
     
@@ -385,13 +418,13 @@ async function streamMessage(content, type) {
     const contentDiv = messageDiv.querySelector('.message-content');
     
     // 逐字显示
-    const text = escapeHtml(content);
-    let index = 0;
+    let displayText = '';
     const speed = 20; // 每个字符显示间隔(毫秒)
     
-    while (index < text.length) {
-        contentDiv.textContent += text[index];
-        index++;
+    for (let i = 0; i < content.length; i++) {
+        displayText += content[i];
+        // 使用marked渲染markdown
+        contentDiv.innerHTML = marked.parse(displayText);
         container.scrollTop = container.scrollHeight;
         await new Promise(resolve => setTimeout(resolve, speed));
     }
